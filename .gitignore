@@ -1,0 +1,13 @@
+# Ignore Unreal Engine files
+*.log
+*.vs
+.vs2019
+.vscode
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
