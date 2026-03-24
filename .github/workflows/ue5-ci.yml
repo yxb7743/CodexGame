@@ -21,7 +21,21 @@ env:
   TEST_REPORT_DIR: "D:\\Epic Games\\UEPro\\CodexGame\\Saved\\Automation\\Reports"
 
 jobs:
+  workflow-quick-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate Workflow Syntax (actionlint)
+        uses: rhysd/actionlint@v1
+
+      - name: Confirm Workflow File Exists
+        run: test -f .github/workflows/ue5-ci.yml
+
   build-test-deploy:
+    needs: workflow-quick-check
     runs-on: ${{ fromJSON(github.event.inputs.runner_labels || '["self-hosted","windows"]') }}
     timeout-minutes: 180
 
