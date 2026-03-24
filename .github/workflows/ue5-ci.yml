@@ -6,22 +6,36 @@ on:
   pull_request:
     branches: [ "main", "master" ]
   workflow_dispatch:
+    inputs:
+      runner_labels:
+        description: 'JSON array for runs-on labels, e.g. ["self-hosted","windows"]'
+        required: false
+        default: '["self-hosted","windows"]'
 
 env:
-  PROJECT_FILE: D:\Epic Games\UEPro\CodexGame\CodexGame.uproject
-  UE_ROOT: D:\Epic Games\UEPro\UE_5.4
-  BUILD_CONFIG: Development
-  BUILD_PLATFORM: Win64
-  ARCHIVE_DIR: D:\Epic Games\UEPro\CodexGame\Artifacts
-  TEST_REPORT_DIR: D:\Epic Games\UEPro\CodexGame\Saved\Automation\Reports
+  PROJECT_FILE: "D:\\Epic Games\\UEPro\\CodexGame\\CodexGame.uproject"
+  UE_ROOT: "D:\\Epic Games\\UEPro\\UE_5.4"
+  BUILD_CONFIG: "Development"
+  BUILD_PLATFORM: "Win64"
+  ARCHIVE_DIR: "D:\\Epic Games\\UEPro\\CodexGame\\Artifacts"
+  TEST_REPORT_DIR: "D:\\Epic Games\\UEPro\\CodexGame\\Saved\\Automation\\Reports"
 
 jobs:
   build-test-deploy:
-    runs-on: [self-hosted, windows, ue5]
+    runs-on: ${{ fromJSON(github.event.inputs.runner_labels || '["self-hosted","windows"]') }}
+    timeout-minutes: 180
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Print Runner Context
+        shell: powershell
+        run: |
+          Write-Host "Runner name: $env:RUNNER_NAME"
+          Write-Host "Runner os: $env:RUNNER_OS"
+          Write-Host "UE root: $env:UE_ROOT"
+          Write-Host "Project file: $env:PROJECT_FILE"
 
       - name: Build Editor
         shell: powershell
