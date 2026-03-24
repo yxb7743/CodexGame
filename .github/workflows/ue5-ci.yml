@@ -29,7 +29,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Validate Workflow Syntax (actionlint)
-        uses: rhysd/actionlint@v1
+        uses: reviewdog/action-actionlint@v1
 
       - name: Confirm Workflow File Exists
         run: test -f .github/workflows/ue5-ci.yml
