@@ -1,0 +1,70 @@
+name: UE5 CI
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+env:
+  PROJECT_FILE: D:\Epic Games\UEPro\CodexGame\CodexGame.uproject
+  UE_ROOT: D:\Epic Games\UEPro\UE_5.4
+  BUILD_CONFIG: Development
+  BUILD_PLATFORM: Win64
+  ARCHIVE_DIR: D:\Epic Games\UEPro\CodexGame\Artifacts
+  TEST_REPORT_DIR: D:\Epic Games\UEPro\CodexGame\Saved\Automation\Reports
+
+jobs:
+  build-test-deploy:
+    runs-on: [self-hosted, windows, ue5]
+
+    steps:
+      - name: Checkout
+      uses: actions/checkout@v4
+
+      - name: Build Editor
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+          & "$env:UE_ROOT\Engine\Build\BatchFiles\Build.bat" CodexGameEditor $env:BUILD_PLATFORM $env:BUILD_CONFIG -Project="$env:PROJECT_FILE" -WaitMutex -FromMsBuild
+
+      - name: Run Automation Tests
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Path $env:TEST_REPORT_DIR -Force | Out-Null
+          & "$env:UE_ROOT\Engine\Binaries\Win64\UnrealEditor-Cmd.exe" "$env:PROJECT_FILE" `
+            -unattended -NullRHI -NoSplash -NoSound `
+            -ExecCmds="Automation RunTests CodexGame.ChessAI.AttackBehavior;Quit" `
+            -TestExit="Automation Test Queue Empty" `
+            -ReportOutputPath="$env:TEST_REPORT_DIR" `
+            -log
+
+      - name: Package (BuildCookRun)
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+          New-Item -ItemType Directory -Path $env:ARCHIVE_DIR -Force | Out-Null
+          & "$env:UE_ROOT\Engine\Build\BatchFiles\RunUAT.bat" BuildCookRun `
+            -project="$env:PROJECT_FILE" `
+            -noP4 `
+            -platform=$env:BUILD_PLATFORM `
+            -clientconfig=$env:BUILD_CONFIG `
+            -build -cook -stage -pak -archive `
+            -archivedirectory="$env:ARCHIVE_DIR"
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: codexgame-windows-package
+          path: D:\Epic Games\UEPro\CodexGame\Artifacts
+          if-no-files-found: error
+
+      - name: Upload Test Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codexgame-automation-report
+          path: D:\Epic Games\UEPro\CodexGame\Saved\Automation\Reports
+          if-no-files-found: warn
