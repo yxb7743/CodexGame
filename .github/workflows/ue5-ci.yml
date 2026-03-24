@@ -8,9 +8,9 @@ on:
   workflow_dispatch:
     inputs:
       runner_labels:
-        description: 'JSON array for runs-on labels, e.g. ["self-hosted","windows"]'
+        description: 'JSON array for runs-on labels, e.g. ["self-hosted","windows","ue5"]'
         required: false
-        default: '["windows-latest"]'
+        default: '["self-hosted","windows","ue5"]'
 
 env:
   PROJECT_FILE: "D:\\Epic Games\\UEPro\\CodexGame\\CodexGame.uproject"
@@ -36,7 +36,7 @@ jobs:
 
   build-test-deploy:
     needs: workflow-quick-check
-    runs-on: ${{ fromJSON(github.event.inputs.runner_labels || '["windows-latest"]') }}
+    runs-on: ${{ fromJSON(github.event.inputs.runner_labels || '["self-hosted","windows","ue5"]') }}
     timeout-minutes: 180
 
     steps:
@@ -52,33 +52,25 @@ jobs:
           Write-Host "Project file: $env:PROJECT_FILE"
 
       - name: Check UE Toolchain
-        id: check_ue
         shell: powershell
         run: |
           $BuildBat = Join-Path $env:UE_ROOT "Engine\\Build\\BatchFiles\\Build.bat"
           $UATBat = Join-Path $env:UE_ROOT "Engine\\Build\\BatchFiles\\RunUAT.bat"
           $EditorCmd = Join-Path $env:UE_ROOT "Engine\\Binaries\\Win64\\UnrealEditor-Cmd.exe"
 
-          if ((Test-Path $BuildBat) -and (Test-Path $UATBat) -and (Test-Path $EditorCmd) -and (Test-Path $env:PROJECT_FILE)) {
-            "ue_ready=true" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-            Write-Host "UE toolchain detected."
-          }
-          else {
-            "ue_ready=false" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-            New-Item -ItemType Directory -Path "$env:ARCHIVE_DIR" -Force | Out-Null
-            "UE toolchain or project path not found on this runner. Skipping UE build/test/package steps." | Set-Content -Path "$env:ARCHIVE_DIR\\SKIPPED.txt"
-            Write-Warning "UE toolchain not found on this runner, heavy steps will be skipped."
-          }
+          if (!(Test-Path $BuildBat)) { throw "Build.bat not found: $BuildBat" }
+          if (!(Test-Path $UATBat)) { throw "RunUAT.bat not found: $UATBat" }
+          if (!(Test-Path $EditorCmd)) { throw "UnrealEditor-Cmd.exe not found: $EditorCmd" }
+          if (!(Test-Path $env:PROJECT_FILE)) { throw "Project file not found: $env:PROJECT_FILE" }
+          Write-Host "UE toolchain detected. Strict deployment mode enabled."
 
       - name: Build Editor
-        if: steps.check_ue.outputs.ue_ready == 'true'
         shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
           & "$env:UE_ROOT\Engine\Build\BatchFiles\Build.bat" CodexGameEditor $env:BUILD_PLATFORM $env:BUILD_CONFIG -Project="$env:PROJECT_FILE" -WaitMutex -FromMsBuild
 
       - name: Run Automation Tests
-        if: steps.check_ue.outputs.ue_ready == 'true'
         shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
@@ -91,7 +83,6 @@ jobs:
             -log
 
       - name: Package (BuildCookRun)
-        if: steps.check_ue.outputs.ue_ready == 'true'
         shell: powershell
         run: |
           $ErrorActionPreference = "Stop"
